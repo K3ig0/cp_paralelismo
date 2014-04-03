@@ -10,6 +10,24 @@ mpirun -np 5 ./mpi-pi
 #include <math.h>
 #include <mpi.h>
 
+int MPI_FattreeColectiva(void * buffer, int count, MPI_Datatype datatype,
+        int root, MPI_Comm comm){
+    int my_id, numprocs, i, ret;
+    MPI_Status status;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
+    if (my_id == 0) {
+        for (i=1; i < numprocs; i++){
+            MPI_Send(buffer, count, datatype, i, root, comm);
+        }
+    }
+    else {
+        ret = MPI_Recv(buffer, count, datatype, root, 0, comm, &status);
+    }
+    return ret;
+}
+
 int main(int argc, char *argv[])
 {
     int i, n;
@@ -31,7 +49,7 @@ int main(int argc, char *argv[])
                 printf("Enter the number of intervals: (0 quits) \n");
                 scanf("%d",&n);
             }
-            MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD); 
+            MPI_FattreeColectiva(&n, 1, MPI_INT, 0, MPI_COMM_WORLD); 
             if (n == 0) break;
             /*Start alg*/ 
             h   = 1.0 / (double) n;
