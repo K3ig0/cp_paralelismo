@@ -10,6 +10,7 @@ mpirun -np 5 ./mpi-pi
 #include <math.h>
 #include <mpi.h>
 
+
 int MPI_FattreeColectiva(void * buffer, int count, MPI_Datatype datatype,
         int root, MPI_Comm comm){
     int my_id, numprocs, i, ret;
@@ -26,6 +27,29 @@ int MPI_FattreeColectiva(void * buffer, int count, MPI_Datatype datatype,
         ret = MPI_Recv(buffer, count, datatype, root, 0, comm, &status);
     }
     return ret;
+}
+
+int generate_steps(int numprocs){
+    return (int)ceil(log10(numprocs) / log10(2));
+}
+
+int MPI_BinomialColectiva(void * buffer, int count, MPI_Datatype datatype,
+        int root, MPI_Comm comm){
+    int my_id, numprocs, i, ret, steps;
+    MPI_Status status;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
+    steps = generate_steps(numprocs);
+    for (i=1; i <= steps; i++){
+        if ((my_id < (pow(2, (i-1))))) {
+            MPI_Send(buffer, count, datatype, (my_id+(pow(2, (i-1)))), 0, comm);
+         }
+        else if (my_id < (pow(2, i))){
+            ret = MPI_Recv(buffer, count, datatype, (my_id-(pow(2, (i-1)))), 0, comm, &status);
+         }
+    }
+    return ret; 
 }
 
 int main(int argc, char *argv[])
@@ -49,7 +73,7 @@ int main(int argc, char *argv[])
                 printf("Enter the number of intervals: (0 quits) \n");
                 scanf("%d",&n);
             }
-            MPI_FattreeColectiva(&n, 1, MPI_INT, 0, MPI_COMM_WORLD); 
+            MPI_BinomialColectiva(&n, 1, MPI_INT, 0, MPI_COMM_WORLD); 
             if (n == 0) break;
             /*Start alg*/ 
             h   = 1.0 / (double) n;
