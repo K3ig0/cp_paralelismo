@@ -43,6 +43,7 @@ int MPI_BinomialColectiva(void * buffer, int count, MPI_Datatype datatype,
     steps = generate_steps(numprocs);
     for (i=1; i <= steps; i++){
         if ((my_id < (pow(2, (i-1))))) {
+            if (numprocs<=(my_id+(pow(2, (i-1))))) break;
             MPI_Send(buffer, count, datatype, (my_id+(pow(2, (i-1)))), 0, comm);
          }
         else if (my_id < (pow(2, i))){
