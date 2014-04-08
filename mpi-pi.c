@@ -11,6 +11,35 @@ mpirun -np 5 ./mpi-pi
 #include <mpi.h>
 
 
+int MPI_FattreeReduce(void *sendbuf, void *recvbuf, int count,
+        MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm){
+    int my_id, numprocs, i, ret;
+    MPI_Status status;
+    double sum;
+    double * x;
+    double * result;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
+    
+    if (my_id != root)
+            MPI_Send(sendbuf, count, datatype, root, 0, comm);
+    else { 
+        x = sendbuf;
+        sum += x[0]; //El root también calculó su parte
+        for (i=1; i<numprocs; i++){
+            ret = MPI_Recv(sendbuf, count, datatype, i, 0, comm, &status);
+            x = sendbuf;
+            sum += x[0];
+        }
+    }
+    
+    result = recvbuf;
+    *result = sum;    
+    return ret;
+}
+
+
 int MPI_FattreeColectiva(void * buffer, int count, MPI_Datatype datatype,
         int root, MPI_Comm comm){
     int my_id, numprocs, i, ret;
@@ -18,7 +47,7 @@ int MPI_FattreeColectiva(void * buffer, int count, MPI_Datatype datatype,
 
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
-    if (my_id == 0) {
+    if (my_id == root) {
         for (i=1; i < numprocs; i++){
             MPI_Send(buffer, count, datatype, i, root, comm);
         }
@@ -84,7 +113,7 @@ int main(int argc, char *argv[])
                 sum += 4.0 / (1.0 + x*x);
             }
             /*Finish alg*/
-            MPI_Reduce(&sum, &sum1, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+            MPI_FattreeReduce(&sum, &sum1, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
             if (my_id == 0) {
                 pi = h * sum1;
                 printf("(%d) pi is approximately %.16f, Error is %.16f\n", my_id,
