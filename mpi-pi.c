@@ -64,20 +64,22 @@ int generate_steps(int numprocs){
 
 int MPI_BinomialColectiva(void * buffer, int count, MPI_Datatype datatype,
         int root, MPI_Comm comm){
-    int my_id, numprocs, i, ret, steps;
+    int my_id, numprocs, i, ret, steps, pot;
     MPI_Status status;
 
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
     steps = generate_steps(numprocs);
+    pot = 1;
     for (i=1; i <= steps; i++){
-        if ((my_id < (pow(2, (i-1))))) {
-            if (numprocs<=(my_id+(pow(2, (i-1))))) break;
-            MPI_Send(buffer, count, datatype, (my_id+(pow(2, (i-1)))), 0, comm);
-         }
-        else if (my_id < (pow(2, i))){
-            ret = MPI_Recv(buffer, count, datatype, (my_id-(pow(2, (i-1)))), 0, comm, &status);
-         }
+        if (my_id < pot) {
+            if (numprocs<=(my_id+pot)) break;
+            MPI_Send(buffer, count, datatype, (my_id+pot), 0, comm);
+        }
+        else if (my_id < (pot*2)){
+            ret = MPI_Recv(buffer, count, datatype, (my_id-pot), 0, comm, &status);
+        }
+        pot = pot * 2;
     }
     return ret; 
 }
