@@ -6,8 +6,8 @@ with z_0 = 0 does not tend to infinity.*/
 
 /*Ejecucion:
 
-gcc -o mandel mandel.c
-./mandel > mandel.txt
+mpicc mandel.c -o mandel
+mpirun -np 4 ./mandel > mandel.txt
 python2 view.py mandel.txt
 
 */
