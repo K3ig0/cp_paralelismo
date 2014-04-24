@@ -4,7 +4,16 @@ with z_0 = 0 does not tend to infinity.*/
 
 /*This code computes an image of the Mandelbrot set.*/
 
+/*Ejecucion:
+
+gcc -o mandel mandel.c
+./mandel > mandel.txt
+python2 view.py mandel.txt
+
+*/
+
 #include <stdio.h>
+#include <mpi.h>
 
 #define DEBUG 1
 
@@ -24,7 +33,7 @@ typedef struct complextype
         } Compl;
 
 
-int main ( )
+int main (int argc, char *argv[] )
 {
 
        /* Mandelbrot variables */
@@ -33,8 +42,17 @@ int main ( )
         float   lengthsq, temp;
         int res[X_RESN][Y_RESN]; 
 
+        // Spliting the job
+        int numprocs, my_id, area;
+        MPI_Status status;
+        MPI_Init(&argc, &argv);
+        MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+        MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
+
+        area = X_RESN / numprocs;
+
         /* Calculate and draw points */
-        for(i=0; i < X_RESN; i++) 
+        for(i=(my_id*area); i < ((my_id*area)+area); i++) 
         for(j=0; j < Y_RESN; j++) {
           z.real = z.imag = 0.0;
           c.real = X_MIN + j * (X_MAX - X_MIN)/X_RESN;
@@ -53,10 +71,17 @@ int main ( )
 
         if (k >= maxIterations) res[i][j] = 0;
         else res[i][j] = k;
-
+        
         }
+    	
+    if (my_id == 0)
+        MPI_Gather(MPI_IN_PLACE, area, MPI_INT, 
+                &res[0][0], area, MPI_INT, 0, MPI_COMM_WORLD);   
+    else 
+        MPI_Gather(&res[my_id*area][0], area, MPI_INT, 
+                &res[0][0], area, MPI_INT, 0, MPI_COMM_WORLD);   
 	
-	if( DEBUG ) {
+    if( DEBUG ) {
 	  for(i=0;i<X_RESN;i++) {
 	    for(j=0;j<Y_RESN-1;j++) {
               printf("%d\t", res[i][j]);
