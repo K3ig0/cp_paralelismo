@@ -44,6 +44,7 @@ int main (int argc, char *argv[] )
 
         // Spliting the job
         int numprocs, my_id, area;
+        unsigned long bal = 0;
         MPI_Status status;
         MPI_Init(&argc, &argv);
         MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
@@ -68,24 +69,26 @@ int main (int argc, char *argv[] )
             k++;
 
           } while (lengthsq < 4.0 && k < maxIterations);
+          bal = bal + (k*10); //10 operations
 
         if (k >= maxIterations) res[i][j] = 0;
         else res[i][j] = k;
         
         }
-    	
+    fprintf(stderr, "The proccess %d has done %lu float point operations \n", my_id, bal);
+
     if (my_id == 0)
-        MPI_Gather(MPI_IN_PLACE, area, MPI_INT, 
-                &res[0][0], area, MPI_INT, 0, MPI_COMM_WORLD);   
+        MPI_Gather(MPI_IN_PLACE, area*Y_RESN, MPI_INT, 
+                res, area*Y_RESN, MPI_INT, 0, MPI_COMM_WORLD);   
     else 
-        MPI_Gather(&res[my_id*area][0], area, MPI_INT, 
-                &res[0][0], area, MPI_INT, 0, MPI_COMM_WORLD);   
-	
-    if( DEBUG ) {
+        MPI_Gather(res[my_id*area], area*Y_RESN, MPI_INT, 
+                res, area*Y_RESN, MPI_INT, 0, MPI_COMM_WORLD);   	
+    if( DEBUG && (my_id == 0)) {
 	  for(i=0;i<X_RESN;i++) {
 	    for(j=0;j<Y_RESN-1;j++) {
               printf("%d\t", res[i][j]);
 	    }
 	    printf("%d\n", res[i][Y_RESN-1]);}
 	}
+    MPI_Finalize();
 }
