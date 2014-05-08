@@ -37,10 +37,11 @@ int main (int argc, char *argv[] )
 {
 
     /* Mandelbrot variables */
-    int i, j, k, p, t, tag;
+    int i, j, k, p, t, s, tag;
     Compl   z, c;
     float   lengthsq, temp;
     int res[X_RESN][Y_RESN]; 
+    int temp_row[Y_RESN];
 
     // Spliting the job
     int numprocs, my_id, n;
@@ -51,32 +52,30 @@ int main (int argc, char *argv[] )
     MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
 
     n = X_RESN;
-
     if (my_id == 0) {
         k=0;
-        while (k < n) {
-            t=0;
-            for (p=1; p < numprocs; p++){
-                if (k>=n) break;
-                MPI_Send(&k, 1, MPI_INT, p, WORK_TAG, MPI_COMM_WORLD);
-                k++; t++;
-            }
-            k = k - t;
-            for (p=1; p < numprocs; p++){
-                if (k>=n) break;
-                MPI_Recv(&res, Y_RESN, MPI_INT, p, 0, MPI_COMM_WORLD, &status);
-                k++;
-            }
+        t=0;
+        for (p=1; p < numprocs; p++){
+            if (t>n-1) break;
+            MPI_Send(&t, 1, MPI_INT, p, WORK_TAG, MPI_COMM_WORLD);
+            t++;
         }
-        for (p=1; p < numprocs; p++) {
-            MPI_Send(&res, Y_RESN, MPI_INT, p, DIE_TAG, MPI_COMM_WORLD);
+        while (k<n) {
+            MPI_Recv(&temp_row, Y_RESN, MPI_INT, MPI_ANY_SOURCE, 
+                    MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            for (s=0; s<Y_RESN; s++) res[status.MPI_TAG][s] = temp_row[s];
+            k++;
+            if (t >= n) tag = DIE_TAG;
+            else tag = WORK_TAG;
+            MPI_Send(&t, 1, MPI_INT, status.MPI_SOURCE, tag, MPI_COMM_WORLD);
+            t++;
         }
     }
     else{
         while (1){
-            MPI_Recv(&i, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
-            if (status.MPI_TAG == DIE_TAG) MPI_Finalize();
-            for (j=0; i< Y_RESN; j++) {
+            MPI_Recv(&i, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            if (status.MPI_TAG == DIE_TAG) break;
+            for (j=0; j< Y_RESN; j++) {
                 z.real = z.imag = 0.0;
                 c.real = X_MIN + j * (X_MAX - X_MIN)/X_RESN;
                 c.imag = Y_MAX - i * (Y_MAX - Y_MIN)/Y_RESN;
@@ -96,11 +95,10 @@ int main (int argc, char *argv[] )
                 if (k >= maxIterations) res[i][j] = 0;
                 else res[i][j] = k;
             }
-            MPI_Send(&res, Y_RESN, MPI_INT, 0, WORK_TAG, MPI_COMM_WORLD);
+            MPI_Send(&res[i], Y_RESN, MPI_INT, 0, i, MPI_COMM_WORLD);
         }
     }
     //fprintf(stderr, "The proccess %d has done %lu float point operations \n", my_id, bal);
-
     if( DEBUG && (my_id == 0)) {
         for(i=0;i<X_RESN;i++) {
             for(j=0;j<Y_RESN-1;j++) {
@@ -108,5 +106,6 @@ int main (int argc, char *argv[] )
             }
             printf("%d\n", res[i][Y_RESN-1]);}
     }
+
     MPI_Finalize();
 }
