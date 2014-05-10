@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 #include <mpi.h>
+#include <sys/time.h>
 
 #define DEBUG 1
 
@@ -37,11 +38,13 @@ int main (int argc, char *argv[] )
 {
 
     /* Mandelbrot variables */
-    int i, j, k, p, t, s, tag;
+    int i, j, p, k, tag, recibidos, enviados;
     Compl   z, c;
     float   lengthsq, temp;
     int res[X_RESN][Y_RESN]; 
     int temp_row[Y_RESN];
+    struct timeval t0, t1;
+    double elapsed;
 
     // Spliting the job
     int numprocs, my_id, n;
@@ -51,24 +54,27 @@ int main (int argc, char *argv[] )
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
 
+    //Getting the current time
+    gettimeofday(&t0, 0);
+    
     n = X_RESN;
     if (my_id == 0) {
-        k=0;
-        t=0;
+        recibidos=0;
+        enviados=0;
         for (p=1; p < numprocs; p++){
-            if (t>n-1) break;
-            MPI_Send(&t, 1, MPI_INT, p, WORK_TAG, MPI_COMM_WORLD);
-            t++;
+            if (enviados>n-1) break;
+            MPI_Send(&enviados, 1, MPI_INT, p, WORK_TAG, MPI_COMM_WORLD);
+            enviados++;
         }
-        while (k<n) {
+        while (recibidos<n) {
             MPI_Recv(&temp_row, Y_RESN, MPI_INT, MPI_ANY_SOURCE, 
                     MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            for (s=0; s<Y_RESN; s++) res[status.MPI_TAG][s] = temp_row[s];
-            k++;
-            if (t >= n) tag = DIE_TAG;
+            for (k=0; k<Y_RESN; k++) res[status.MPI_TAG][k] = temp_row[k];
+            recibidos++;
+            if (enviados >= n) tag = DIE_TAG;
             else tag = WORK_TAG;
-            MPI_Send(&t, 1, MPI_INT, status.MPI_SOURCE, tag, MPI_COMM_WORLD);
-            t++;
+            MPI_Send(&enviados, 1, MPI_INT, status.MPI_SOURCE, tag, MPI_COMM_WORLD);
+            enviados++;
         }
     }
     else{
@@ -98,7 +104,13 @@ int main (int argc, char *argv[] )
             MPI_Send(&res[i], Y_RESN, MPI_INT, 0, i, MPI_COMM_WORLD);
         }
     }
-    //fprintf(stderr, "The proccess %d has done %lu float point operations \n", my_id, bal);
+    gettimeofday(&t1, 0);
+    elapsed = ((t1.tv_sec - t0.tv_sec)*1000.0) + 
+        ((t1.tv_usec - t0.tv_usec)/1000.0);
+    
+    if (my_id != 0)
+        fprintf(stderr, "The proccess %d has done %lu float point operations \n", my_id, bal);
+    fprintf(stderr, "The process %d spent %f miliseconds in total \n", my_id, elapsed);
     if( DEBUG && (my_id == 0)) {
         for(i=0;i<X_RESN;i++) {
             for(j=0;j<Y_RESN-1;j++) {
