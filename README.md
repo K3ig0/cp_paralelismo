@@ -1,1 +1,1 @@
-#Aqui podemos escribir notas importantes
+Code writted for "Concurrencia y Paralelismo".
